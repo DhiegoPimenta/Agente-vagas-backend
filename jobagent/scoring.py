@@ -176,6 +176,7 @@ def llm_score(job: Job, cand: dict, model: str) -> Scored:
         "Voce avalia o fit entre uma vaga e o perfil de um candidato.\n"
         'Responda APENAS o objeto JSON, sem texto antes/depois e sem crases: '
         '{"score": <int 0-100>, "reasons": [<str>], "flags": [<str>]}.\n'
+        "reasons: no maximo 3 itens, cada um com no maximo 12 palavras.\n"
         "flags validas: stack_match, senioridade_ok, modalidade_ok, faixa_salarial_compativel, salario_informado.\n"
         "Nao invente dados que nao estejam no perfil ou na vaga.\n"
         "Se o perfil nao trouxer resumo de experiencia, avalie o fit apenas pelos cargos-alvo, "
@@ -188,7 +189,7 @@ def llm_score(job: Job, cand: dict, model: str) -> Scored:
         f"salario: {job.salary_min}-{job.salary_max} {job.salary_currency}\n"
         f"descricao: {job.description[:4000]}\n"
     )
-    data = _llm_json(model, prompt, max_tokens=600)
+    data = _llm_json(model, prompt, max_tokens=1500)
     return Scored(
         job=job,
         score=int(max(0, min(100, int(data.get("score", 0))))),
@@ -289,7 +290,7 @@ def analyze_job(job: Job, cand: dict, model: str) -> str:
         f"titulo: {job.title}\nempresa: {job.company}\nlocal: {job.location}\n"
         f"descricao: {job.description[:4000]}\n"
     )
-    return _analysis_html(_llm_json(model, prompt, max_tokens=700))
+    return _analysis_html(_llm_json(model, prompt, max_tokens=1100))
 
 
 def maybe_analyze(recommended: list[Scored], cand: dict, cfg: dict) -> None:
