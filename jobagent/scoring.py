@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 
 from .models import Job, Scored
 from .util import to_float
@@ -136,7 +137,20 @@ def _extract_json(text: str) -> dict:
     return json.loads(text[start : end + 1])
 
 
-def _llm_json(client, model: str, prompt: str, max_tokens: int, system: str | None = None) -> dict:
+_CLIENT = None
+
+
+def _client():
+    """Cliente anthropic unico, com timeout folgado e retry (CPU do free tier e lento)."""
+    global _CLIENT
+    if _CLIENT is None:
+        import anthropic
+
+        _CLIENT = anthropic.Anthropic(timeout=60.0, max_retries=5)
+    return _CLIENT
+
+
+def _llm_json(model: str, prompt: str, max_tokens: int, system: str | None = None) -> dict:
     kwargs = {
         "model": model,
         "max_tokens": max_tokens,
@@ -144,15 +158,12 @@ def _llm_json(client, model: str, prompt: str, max_tokens: int, system: str | No
     }
     if system:
         kwargs["system"] = system
-    msg = client.messages.create(**kwargs)
+    msg = _client().messages.create(**kwargs)
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
     return _extract_json(text)
 
 
 def llm_score(job: Job, cand: dict, model: str) -> Scored:
-    import anthropic
-
-    client = anthropic.Anthropic(timeout=20.0, max_retries=2)
     profile = {
         k: cand.get(k)
         for k in (
@@ -177,7 +188,7 @@ def llm_score(job: Job, cand: dict, model: str) -> Scored:
         f"salario: {job.salary_min}-{job.salary_max} {job.salary_currency}\n"
         f"descricao: {job.description[:4000]}\n"
     )
-    data = _llm_json(client, model, prompt, max_tokens=600)
+    data = _llm_json(model, prompt, max_tokens=600)
     return Scored(
         job=job,
         score=int(max(0, min(100, int(data.get("score", 0))))),
@@ -219,7 +230,9 @@ def score_all(jobs: list[Job], cand: dict, cfg: dict) -> list[Scored]:
     )[:max_jobs]
 
     refined = 0
-    for i in candidates:
+    for n, i in enumerate(candidates):
+        if n:
+            time.sleep(0.4)  # espaca as chamadas pra nao tomar rate limit
         try:
             new = llm_score(jobs[i], cand, model)
             if not new.reasons:
@@ -256,9 +269,6 @@ def _analysis_html(data: dict) -> str:
 
 def analyze_job(job: Job, cand: dict, model: str) -> str:
     """Gera a analise da vaga como HTML seguro (texto do modelo ja escapado)."""
-    import anthropic
-
-    client = anthropic.Anthropic(timeout=25.0, max_retries=2)
     profile = {
         k: cand.get(k)
         for k in (
@@ -279,7 +289,7 @@ def analyze_job(job: Job, cand: dict, model: str) -> str:
         f"titulo: {job.title}\nempresa: {job.company}\nlocal: {job.location}\n"
         f"descricao: {job.description[:4000]}\n"
     )
-    return _analysis_html(_llm_json(client, model, prompt, max_tokens=700))
+    return _analysis_html(_llm_json(model, prompt, max_tokens=700))
 
 
 def maybe_analyze(recommended: list[Scored], cand: dict, cfg: dict) -> None:
@@ -294,7 +304,9 @@ def maybe_analyze(recommended: list[Scored], cand: dict, cfg: dict) -> None:
     limit = int(acfg.get("max_jobs", 15))
 
     done = 0
-    for s in recommended[:limit]:
+    for n, s in enumerate(recommended[:limit]):
+        if n:
+            time.sleep(0.4)
         try:
             s.analysis = analyze_job(s.job, cand, model)
             done += 1
