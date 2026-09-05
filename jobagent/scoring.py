@@ -29,6 +29,18 @@ _OFF_TARGET_TITLE = (
     "ux designer", "ui designer", "graphic designer",
 )
 
+_BR_HINTS = ("brazil", "brasil", "latam", "latin america", "são paulo", "sao paulo")
+_GLOBAL_HINTS = ("worldwide", "work from anywhere", "remote anywhere", "anywhere in the world",
+                 "fully remote, global", "global remote", "remote - global", "remote, global")
+# Remoto mas restrito a outra regiao/pais (Tiago nao consegue pegar do Brasil).
+_LOCK_HINTS = (
+    "us only", "u.s. only", "usa only", "united states only", "us-based only", "must be based in the us",
+    "must reside in the united states", "authorized to work in the united states", "us work authorization",
+    "eu only", "europe only", "eu-based only", "must be based in europe", "within the eu",
+    "uk only", "must be based in the uk", "right to work in the uk",
+    "must be located in", "must be based in germany", "based in canada", "canada only",
+)
+
 
 def _text(job: Job) -> str:
     return " ".join([job.title, job.company, job.location, job.description, " ".join(job.tags)]).lower()
@@ -39,6 +51,7 @@ def heuristic_score(job: Job, cand: dict) -> Scored:
     title = job.title.lower()
     reasons: list[str] = []
     flags: list[str] = []
+    region = "br"
     score = 40
 
     principal = [s.lower() for s in cand.get("stack_principal", []) if s]
@@ -92,24 +105,39 @@ def heuristic_score(job: Job, cand: dict) -> Scored:
         k in text for k in ("remote", "remoto", "anywhere", "home office", "home-office", "trabalho remoto")
     )
     is_hybrid = any(k in text for k in ("hybrid", "híbrido", "hibrido"))
-    if "remoto" in modal and is_remote:
-        score += 10
-        flags.append("modalidade_ok")
-        reasons.append("Remoto")
-    elif "hibrido" in modal and is_hybrid:
-        score += 6
-        flags.append("modalidade_ok")
-        reasons.append("Hibrido")
-    elif modal and not is_remote and not is_hybrid:
-        score -= 6
-        reasons.append("Modalidade nao confirmada / possivel presencial")
+    br = any(k in text for k in _BR_HINTS)
+    worldwide = any(k in text for k in _GLOBAL_HINTS)
+    region_locked = is_remote and any(k in text for k in _LOCK_HINTS) and not br and not worldwide
 
-    locs = [l.lower() for l in cand.get("localizacao_preferida", []) if l]
-    if any(l in text for l in locs) or any(k in text for k in ("brazil", "brasil", "latam", "latin america")):
+    # Tiago aceita: remoto no Brasil OU remoto mundial. Presencial fora / remoto
+    # travado em outro pais = fora.
+    if is_remote and (br or worldwide):
+        score += 12
+        flags.append("modalidade_ok")
+        region = "br" if br else "global"
+        reasons.append("Remoto compativel (Brasil)" if br else "Remoto worldwide")
+    elif is_remote and not region_locked:
+        score += 7
+        flags.append("modalidade_ok")
+        region = "global"
+        reasons.append("Remoto (regiao nao especificada)")
+    elif region_locked:
+        score -= 18
+        region = "exterior"
+        reasons.append("Remoto travado em outro pais/regiao")
+    elif is_hybrid and br:
         score += 6
-        reasons.append("Localizacao/regiao compativel")
-    elif is_remote and any(k in text for k in ("worldwide", "global", "anywhere")):
-        score += 3
+        flags.append("modalidade_ok")
+        region = "br"
+        reasons.append("Hibrido no Brasil")
+    elif br:
+        score += 4
+        region = "br"
+        reasons.append("Presencial/hibrido no Brasil")
+    else:
+        score -= 22
+        region = "exterior"
+        reasons.append("Presencial no exterior (fora do alvo)")
 
     minimo = to_float(cand.get("faixa_salarial_min"))
     if job.has_salary:
@@ -133,7 +161,9 @@ def heuristic_score(job: Job, cand: dict) -> Scored:
             reasons.append("Possivel consultoria/alocacao (restricao do candidato)")
 
     score = max(0, min(100, score))
-    return Scored(job=job, score=int(round(score)), reasons=reasons, flags=sorted(set(flags)))
+    return Scored(
+        job=job, score=int(round(score)), reasons=reasons, flags=sorted(set(flags)), region=region
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -329,7 +359,11 @@ def analyze_job(job: Job, cand: dict, model: str) -> str:
         "treino (pode estar desatualizado); NAO invente fatos, notas nem numeros.\n"
         "fit: 2-3 frases sobre o encaixe. Cada lista: no maximo 4 itens curtos.\n"
         "Se o perfil nao tiver resumo de experiencia, foque em cargos-alvo e stacks; "
-        "nao invente experiencia.\n\n"
+        "nao invente experiencia.\n"
+        "O candidato mora no Brasil, quer trabalho REMOTO (do Brasil ou worldwide) e "
+        "tem curriculo em portugues E em ingles. Em 'atencao', diga qual curriculo usar "
+        "(PT ou EN, pelo idioma do anuncio/pais da empresa) e, se a vaga exigir presenca "
+        "no exterior ou for remota travada em outro pais, avise que provavelmente nao da.\n\n"
         f"PERFIL:\n{json.dumps(profile, ensure_ascii=False, indent=2)}\n\n"
         "VAGA:\n"
         f"titulo: {job.title}\nempresa: {job.company}\nlocal: {job.location}\n"

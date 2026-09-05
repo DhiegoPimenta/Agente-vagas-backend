@@ -85,6 +85,7 @@ def _job_dict(scored) -> dict:
         "source": j.source,
         "score": scored.score,
         "salary": salary,
+        "region": scored.region,  # br | global | exterior
         "reasons": scored.reasons,
         "analysis_html": scored.analysis,
         "description": j.description[:6000],
@@ -259,8 +260,11 @@ def _ask_llm(job: dict, question: str, history: list[dict]) -> str:
         "portugues, objetivo. Use a descricao da vaga e o perfil abaixo. Sobre a EMPRESA "
         "(se e boa de trabalhar, cultura, estabilidade, reputacao) voce PODE usar seu "
         "conhecimento geral, deixando claro que pode estar desatualizado e sem inventar "
-        "notas ou numeros; se nao souber, diga. Para perguntas fora do contexto desta "
-        "vaga/empresa, diga que so fala sobre esta vaga. Nao invente requisitos.\n\n"
+        "notas ou numeros; se nao souber, diga. O candidato mora no Brasil, busca trabalho "
+        "REMOTO (do Brasil ou worldwide) e tem curriculo em portugues e em ingles -- se "
+        "perguntarem, recomende PT ou EN pelo idioma do anuncio/pais da empresa. Para "
+        "perguntas fora do contexto desta vaga/empresa, diga que so fala sobre esta vaga. "
+        "Nao invente requisitos.\n\n"
         f"VAGA:\ntitulo: {job['title']}\nempresa: {job['company']}\nlocal: {job['location']}\n"
         f"salario: {job.get('salary') or 'nao informado'}\nlink: {job['url']}\n"
         f"descricao:\n{job.get('description', '')[:6000]}\n\n"

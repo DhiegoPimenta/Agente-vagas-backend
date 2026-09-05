@@ -17,7 +17,10 @@ candidate:
                      "ECS", "Docker", "Kubernetes", "Terraform", "MongoDB", "Redis", "REST",
                      "TypeScript", "Node"]
   modalidade: ["remoto", "hibrido"]        # remoto | hibrido | presencial
-  localizacao_preferida: ["São Paulo/SP", "Brasil", "Remoto", "LATAM"]
+  # Mora em SP. Quer remoto: do Brasil OU worldwide. Nao vai relocar -> vaga
+  # presencial no exterior (ou remota travada em outro pais) leva nota baixa.
+  localizacao_preferida: ["Remoto (Brasil)", "Remote worldwide", "São Paulo/SP", "LATAM"]
+  curriculo_idiomas: ["pt", "en"]          # tem CV em portugues e ingles
   faixa_salarial_min: 0                     # 0 = sem filtro de salário
   moeda: "BRL"
   idiomas: ["Português", "Inglês (fluente/C1)", "Espanhol (intermediário)"]
