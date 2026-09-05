@@ -15,6 +15,17 @@ _LEAD = ("tech lead", "team lead", "líder", "lider", "manager", "gerente", "hea
 _ENG = ("developer", "engineer", "desenvolvedor", "engenheiro", "software", "programador",
         "full stack", "fullstack", "full-stack", "backend", "back-end", "frontend", "front-end", "sre", "devops")
 
+# Titulos claramente fora do alvo (dev fullstack/front/back): penaliza forte.
+_OFF_TARGET_TITLE = (
+    "test automation", "qa engineer", "quality engineer", "quality assurance", "sdet",
+    "data scientist", "data engineer", "machine learning", "ml engineer", "mlops",
+    "security engineer", "security analyst", "cybersecurity", "penetration",
+    "embedded", "firmware", "hardware", "fpga", "gnc",
+    "salesforce", "sap ", "servicenow", "sharepoint",
+    "support engineer", "technical support", "solutions engineer", "sales engineer",
+    "data analyst", "business analyst", "bi analyst", "system administrator", "network engineer",
+)
+
 
 def _text(job: Job) -> str:
     return " ".join([job.title, job.company, job.location, job.description, " ".join(job.tags)]).lower()
@@ -47,6 +58,11 @@ def heuristic_score(job: Job, cand: dict) -> Scored:
     else:
         score -= 20
         reasons.append("Nao parece vaga de engenharia de software")
+
+    off = next((k for k in _OFF_TARGET_TITLE if k in title), None)
+    if off and not any(k in title for k in ("full stack", "fullstack", "full-stack", "front", "back")):
+        score -= 30
+        reasons.append(f"Titulo fora do alvo dev ({off.strip()})")
 
     aceita = [s.lower() for s in cand.get("aceita_senioridades", ["pleno", "senior"])]
     if any(k in title for k in _JUNIOR):
