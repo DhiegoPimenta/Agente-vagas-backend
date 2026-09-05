@@ -1,0 +1,84 @@
+# Copie para config.yaml (python run.py --init) e preencha os dados do Tiago.
+# config.yaml NÃO deve ser versionado (está no .gitignore).
+
+candidate:
+  nome: "Tiago"
+  cargo_alvo:
+    - "Software Engineer"
+    - "Engenheiro de Software Pleno"
+    - "Engenheiro de Software Senior"
+    - "Fullstack Developer"
+    - "Frontend Developer"
+    - "Backend Developer"
+  # senioridades que ele aceita (usado no score do título da vaga)
+  aceita_senioridades: ["pleno", "senior"]
+  stack_principal: ["Angular", "React", "Java", "C#", "Python"]
+  stack_secundaria: ["TypeScript", "Node", ".NET", "Spring", "SQL", "AWS", "Docker", "REST", "microservices"]
+  modalidade: ["remoto", "hibrido"]        # remoto | hibrido | presencial
+  localizacao_preferida: ["São Paulo/SP", "Brasil", "Remoto", "LATAM"]
+  faixa_salarial_min: 0                     # 0 = sem filtro de salário
+  moeda: "BRL"
+  idiomas: ["Português", "Inglês"]
+  resumo_curriculo: |
+    (preencher quando o currículo do Tiago chegar — 3 a 5 linhas com anos de
+    experiência, principais projetos e conquistas. Usado só pelo score por LLM.)
+  curriculo_arquivo: ""                     # caminho do PDF/DOCX (para futuras candidaturas)
+  email_destino: "SEU_EMAIL@exemplo.com"
+  restricoes:
+    - "não aplicar para vagas de consultoria / body shop / alocação"
+    - "não aplicar sem faixa salarial informada"
+
+sources:
+  remoteok:
+    enabled: true
+  arbeitnow:
+    enabled: true
+  adzuna:
+    enabled: false                         # precisa de chave grátis: https://developer.adzuna.com
+    app_id: ""                             # ou variável de ambiente ADZUNA_APP_ID
+    app_key: ""                            # ou variável de ambiente ADZUNA_APP_KEY
+    country: "br"
+    results_per_page: 50
+    max_pages: 2
+    queries: ["software engineer", "desenvolvedor", "fullstack", "backend developer", "frontend developer"]
+
+collection:
+  lookback_hours: 48                       # só vagas publicadas nas últimas N horas
+  max_jobs_per_source: 200
+
+scoring:
+  mode: "auto"                             # auto | heuristic | llm
+  llm_model: "claude-sonnet-5"             # usado só se mode=llm/auto E ANTHROPIC_API_KEY setada
+  min_score_recommend: 55                  # score < isso => "descartada"
+  auto_apply_threshold: 90                 # (auto-apply está DESLIGADO nesta versão)
+  # O LLM não roda em todas as vagas: a heurística filtra e só as mais
+  # promissoras vão pro Claude (mais rápido e mais barato).
+  llm_max_jobs: 15                         # teto de chamadas ao LLM por execução
+  llm_min_heuristic: 40                    # só refina no LLM se a heurística deu >= isso
+
+email:
+  enabled: false                          # true para enviar; false só salva o HTML em output/
+  smtp_host: "smtp.gmail.com"
+  smtp_port: 587
+  smtp_user: "SEU_EMAIL@gmail.com"
+  smtp_password_env: "JOBAGENT_SMTP_PASSWORD"   # a senha vem DESSA variável de ambiente, nunca do arquivo
+  from_addr: "SEU_EMAIL@gmail.com"
+  to_addr: "SEU_EMAIL@exemplo.com"
+  subject_prefix: "[Vagas][Tiago]"
+
+output:
+  dir: "output"
+  db_path: "data/jobagent.sqlite3"
+  pages_dir: "docs"        # grava tambem docs/index.html (o GitHub Pages publica essa pasta)
+  top_recommend: 40        # quantas recomendadas entram no HTML (0 = todas)
+  page_size: 10            # quantas aparecem de cara; o resto vem no botao "buscar mais"
+  page_step: 5             # quantas o botao "buscar mais" revela por clique
+
+analysis:
+  enabled: true            # gera a analise "Saber mais" por vaga (usa o LLM)
+  max_jobs: 15             # analisa so as N primeiras recomendadas (controla custo)
+
+safety:
+  auto_apply_enabled: false               # trava dura — auto-apply nem está implementado nesta versão
+  blocked_sources: ["linkedin", "indeed"] # nunca automatizar (ToS)
+  max_auto_apply_per_day: 5

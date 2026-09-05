@@ -1,0 +1,29 @@
+# Blueprint do Render. No painel: New + -> Blueprint -> escolha este repo.
+# Depois preencha ANTHROPIC_API_KEY no painel (marcado como sync:false, o Render pede).
+services:
+  - type: web
+    name: agente-vagas-backend
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn webapp:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: ANTHROPIC_API_KEY
+        sync: false            # voce digita no painel do Render; nunca vai pro git
+      - key: RUN_TOKEN
+        generateValue: true    # o Render gera um token forte sozinho
+      - key: SCORING_MODE
+        value: "auto"          # troque para "heuristic" se quiser zerar custo de LLM no ranking
+      - key: REFRESH_HOURS
+        value: "12"
+      - key: CHAT_DAILY_LIMIT
+        value: "200"
+      - key: CHAT_PER_IP_HOUR
+        value: "20"
+      - key: CORS_ORIGINS
+        value: "*"
