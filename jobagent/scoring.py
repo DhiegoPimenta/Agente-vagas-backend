@@ -294,12 +294,16 @@ def analyze_job(job: Job, cand: dict, model: str) -> str:
 
 
 def maybe_analyze(recommended: list[Scored], cand: dict, cfg: dict) -> None:
-    """Preenche s.analysis nas primeiras N recomendadas, se o LLM estiver ativo."""
+    """
+    Preenche s.analysis nas primeiras N recomendadas.
+
+    Independente de scoring.mode: a analise "Saber mais" roda sempre que
+    analysis.enabled e houver ANTHROPIC_API_KEY -- mesmo com o ranking em
+    heuristica (que e mais rapido e confiavel). So nao roda em mode=heuristic
+    se a chave nao existir.
+    """
     acfg = cfg.get("analysis", {})
-    if not acfg.get("enabled", True):
-        return
-    mode = str(cfg.get("scoring", {}).get("mode", "auto")).lower()
-    if mode == "heuristic" or (mode == "auto" and not llm_available()):
+    if not acfg.get("enabled", True) or not llm_available():
         return
     model = cfg.get("scoring", {}).get("llm_model", "claude-sonnet-5")
     limit = int(acfg.get("max_jobs", 15))
