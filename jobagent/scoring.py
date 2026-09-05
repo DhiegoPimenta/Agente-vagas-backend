@@ -46,6 +46,19 @@ def _text(job: Job) -> str:
     return " ".join([job.title, job.company, job.location, job.description, " ".join(job.tags)]).lower()
 
 
+_PLACE_NOISE = ("remote", "remoto", "anywhere", "worldwide", "global", "home office", "homeoffice",
+                "home-office", "hybrid", "híbrido", "hibrido", "office", "onsite", "on-site", "job",
+                "full-time", "part-time", "position", " - ", "/", ",", ";", "(", ")", "|")
+
+
+def _names_place(location: str) -> bool:
+    """True se o campo 'local' aponta uma cidade/pais concreto (nao so 'Remote')."""
+    s = (location or "").lower()
+    for w in _PLACE_NOISE:
+        s = s.replace(w, " ")
+    return len(s.split()) > 0 and len("".join(s.split())) >= 3
+
+
 def heuristic_score(job: Job, cand: dict) -> Scored:
     text = _text(job)
     title = job.title.lower()
@@ -100,40 +113,44 @@ def heuristic_score(job: Job, cand: dict) -> Scored:
         elif not any(k in title for k in _SENIOR + _PLENO):
             score += 3  # titulo neutro
 
-    modal = [m.lower() for m in cand.get("modalidade", [])]
     is_remote = job.remote is True or any(
-        k in text for k in ("remote", "remoto", "anywhere", "home office", "home-office", "trabalho remoto")
+        k in text for k in ("remote", "remoto", "anywhere", "home office", "home-office", "homeoffice", "trabalho remoto")
     )
     is_hybrid = any(k in text for k in ("hybrid", "híbrido", "hibrido"))
-    br = any(k in text for k in _BR_HINTS)
     worldwide = any(k in text for k in _GLOBAL_HINTS)
-    region_locked = is_remote and any(k in text for k in _LOCK_HINTS) and not br and not worldwide
+    region_locked = is_remote and any(k in text for k in _LOCK_HINTS) and not worldwide
 
-    # Tiago aceita: remoto no Brasil OU remoto mundial. Presencial fora / remoto
-    # travado em outro pais = fora.
-    if is_remote and (br or worldwide):
+    # A regiao vem sobretudo do LOCAL da vaga (mais confiavel que palavra na descricao):
+    # muitas vagas europeias vem marcadas "remote" mas o local diz Londres/Berlim ->
+    # na pratica sao remoto regional, que Tiago nao consegue pegar do Brasil.
+    loc = job.location.lower()
+    loc_br = any(k in loc for k in _BR_HINTS)
+    place = _names_place(job.location) and not loc_br  # local aponta cidade/pais estrangeiro
+
+    if loc_br and (is_remote or is_hybrid):
         score += 12
         flags.append("modalidade_ok")
-        region = "br" if br else "global"
-        reasons.append("Remoto compativel (Brasil)" if br else "Remoto worldwide")
-    elif is_remote and not region_locked:
-        score += 7
-        flags.append("modalidade_ok")
-        region = "global"
-        reasons.append("Remoto (regiao nao especificada)")
+        region = "br"
+        reasons.append("Remoto/hibrido no Brasil")
+    elif loc_br:
+        score += 4
+        region = "br"
+        reasons.append("Presencial no Brasil")
+    elif place:
+        # local aponta cidade/pais estrangeiro -> na pratica exige presenca ou e
+        # remoto regional; Tiago nao consegue pegar do Brasil.
+        score -= 18
+        region = "exterior"
+        reasons.append(f"Vaga atrelada a {job.location.strip()[:40]}")
     elif region_locked:
         score -= 18
         region = "exterior"
         reasons.append("Remoto travado em outro pais/regiao")
-    elif is_hybrid and br:
-        score += 6
+    elif is_remote:
+        score += 12 if worldwide else 8
         flags.append("modalidade_ok")
-        region = "br"
-        reasons.append("Hibrido no Brasil")
-    elif br:
-        score += 4
-        region = "br"
-        reasons.append("Presencial/hibrido no Brasil")
+        region = "global"
+        reasons.append("Remoto worldwide" if worldwide else "Remoto (sem local fixo)")
     else:
         score -= 22
         region = "exterior"
