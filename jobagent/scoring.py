@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 from .models import Job, Scored
 from .util import to_float
@@ -135,6 +136,24 @@ def _extract_json(text: str) -> dict:
     return json.loads(text[start : end + 1])
 
 
+# Forca o modelo a comecar a resposta em "{": entra como turno do assistente
+# (prefill) e e prependado ao texto antes de fazer o parse.
+_JSON_PREFILL = {"role": "assistant", "content": "{"}
+
+
+def _llm_json(client, model: str, prompt: str, max_tokens: int, system: str | None = None) -> dict:
+    kwargs = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": prompt}, _JSON_PREFILL],
+    }
+    if system:
+        kwargs["system"] = system
+    msg = client.messages.create(**kwargs)
+    text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
+    return _extract_json("{" + text)
+
+
 def llm_score(job: Job, cand: dict, model: str) -> Scored:
     import anthropic
 
@@ -162,13 +181,7 @@ def llm_score(job: Job, cand: dict, model: str) -> Scored:
         f"salario: {job.salary_min}-{job.salary_max} {job.salary_currency}\n"
         f"descricao: {job.description[:4000]}\n"
     )
-    msg = client.messages.create(
-        model=model,
-        max_tokens=600,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
-    data = _extract_json(text)
+    data = _llm_json(client, model, prompt, max_tokens=600)
     return Scored(
         job=job,
         score=int(max(0, min(100, int(data.get("score", 0))))),
@@ -217,8 +230,8 @@ def score_all(jobs: list[Job], cand: dict, cfg: dict) -> list[Scored]:
                 new.reasons.append("Avaliado por LLM")
             scored[i] = new
             refined += 1
-        except Exception as exc:  # rede, parsing, quota... mantem a heuristica
-            scored[i].reasons.append(f"(LLM falhou: {exc}; mantida heuristica)")
+        except Exception as exc:  # rede, parsing, quota... mantem a heuristica (silencioso pro usuario)
+            print(f"    [llm_score] {jobs[i].uid}: {exc}", file=sys.stderr)
     print(f"    LLM refinou {refined}/{len(candidates)} vagas (heuristica >= {min_heur})")
     return scored
 
@@ -270,13 +283,7 @@ def analyze_job(job: Job, cand: dict, model: str) -> str:
         f"titulo: {job.title}\nempresa: {job.company}\nlocal: {job.location}\n"
         f"descricao: {job.description[:4000]}\n"
     )
-    msg = client.messages.create(
-        model=model,
-        max_tokens=700,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
-    return _analysis_html(_extract_json(text))
+    return _analysis_html(_llm_json(client, model, prompt, max_tokens=700))
 
 
 def maybe_analyze(recommended: list[Scored], cand: dict, cfg: dict) -> None:
@@ -295,6 +302,6 @@ def maybe_analyze(recommended: list[Scored], cand: dict, cfg: dict) -> None:
         try:
             s.analysis = analyze_job(s.job, cand, model)
             done += 1
-        except Exception as exc:  # nao derruba o run por causa da analise
-            s.reasons.append(f"(analise indisponivel: {exc})")
+        except Exception as exc:  # nao derruba o run nem polui o card do usuario
+            print(f"    [analyze] {s.job.uid}: {exc}", file=sys.stderr)
     print(f"    analise pre-gerada em {done}/{min(limit, len(recommended))} vagas")
