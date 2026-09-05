@@ -132,26 +132,21 @@ def _extract_json(text: str) -> dict:
     start = text.find("{")
     end = text.rfind("}")
     if start == -1 or end == -1:
-        raise ValueError("resposta do LLM sem JSON")
+        raise ValueError(f"resposta do LLM sem JSON: {text[:200]!r}")
     return json.loads(text[start : end + 1])
-
-
-# Forca o modelo a comecar a resposta em "{": entra como turno do assistente
-# (prefill) e e prependado ao texto antes de fazer o parse.
-_JSON_PREFILL = {"role": "assistant", "content": "{"}
 
 
 def _llm_json(client, model: str, prompt: str, max_tokens: int, system: str | None = None) -> dict:
     kwargs = {
         "model": model,
         "max_tokens": max_tokens,
-        "messages": [{"role": "user", "content": prompt}, _JSON_PREFILL],
+        "messages": [{"role": "user", "content": prompt}],
     }
     if system:
         kwargs["system"] = system
     msg = client.messages.create(**kwargs)
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
-    return _extract_json("{" + text)
+    return _extract_json(text)
 
 
 def llm_score(job: Job, cand: dict, model: str) -> Scored:
@@ -168,7 +163,8 @@ def llm_score(job: Job, cand: dict, model: str) -> Scored:
     }
     prompt = (
         "Voce avalia o fit entre uma vaga e o perfil de um candidato.\n"
-        'Responda SOMENTE com JSON: {"score": <int 0-100>, "reasons": [<str>], "flags": [<str>]}.\n'
+        'Responda APENAS o objeto JSON, sem texto antes/depois e sem crases: '
+        '{"score": <int 0-100>, "reasons": [<str>], "flags": [<str>]}.\n'
         "flags validas: stack_match, senioridade_ok, modalidade_ok, faixa_salarial_compativel, salario_informado.\n"
         "Nao invente dados que nao estejam no perfil ou na vaga.\n"
         "Se o perfil nao trouxer resumo de experiencia, avalie o fit apenas pelos cargos-alvo, "
@@ -273,8 +269,8 @@ def analyze_job(job: Job, cand: dict, model: str) -> str:
     prompt = (
         "Com base no PERFIL e na VAGA, gere uma analise curta em portugues para o "
         "candidato decidir se aplica.\n"
-        'Responda SOMENTE com JSON: {"fit": <str>, "atencao": [<str>], '
-        '"revisar": [<str>], "perguntas_recrutador": [<str>]}.\n'
+        'Responda APENAS o objeto JSON, sem texto antes/depois e sem crases: '
+        '{"fit": <str>, "atencao": [<str>], "revisar": [<str>], "perguntas_recrutador": [<str>]}.\n'
         "fit: 2-3 frases sobre o encaixe. Cada lista: no maximo 4 itens curtos.\n"
         "Se o perfil nao tiver resumo de experiencia, foque em cargos-alvo e stacks; "
         "nao invente experiencia.\n\n"
