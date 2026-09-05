@@ -20,10 +20,13 @@ _OFF_TARGET_TITLE = (
     "test automation", "qa engineer", "quality engineer", "quality assurance", "sdet",
     "data scientist", "data engineer", "machine learning", "ml engineer", "mlops",
     "security engineer", "security analyst", "cybersecurity", "penetration",
-    "embedded", "firmware", "hardware", "fpga", "gnc",
+    "embedded", "firmware", "hardware", "fpga", "gnc", "radio", "data link",
     "salesforce", "sap ", "servicenow", "sharepoint",
     "support engineer", "technical support", "solutions engineer", "sales engineer",
     "data analyst", "business analyst", "bi analyst", "system administrator", "network engineer",
+    "systems engineer", "business development", "technical writer", "developer relations",
+    "developer advocate", "recruiter", "product manager", "project manager", "scrum master",
+    "ux designer", "ui designer", "graphic designer",
 )
 
 
@@ -60,7 +63,9 @@ def heuristic_score(job: Job, cand: dict) -> Scored:
         reasons.append("Nao parece vaga de engenharia de software")
 
     off = next((k for k in _OFF_TARGET_TITLE if k in title), None)
-    if off and not any(k in title for k in ("full stack", "fullstack", "full-stack", "front", "back")):
+    if off and not any(
+        k in title for k in ("full stack", "fullstack", "full-stack", "front", "back", "software developer", "software engineer")
+    ):
         score -= 30
         reasons.append(f"Titulo fora do alvo dev ({off.strip()})")
 
@@ -221,18 +226,18 @@ def score_job(job: Job, cand: dict, cfg: dict) -> Scored:
 
 def score_all(jobs: list[Job], cand: dict, cfg: dict) -> list[Scored]:
     """
-    Duas fases:
-      1. heuristica em TODAS as vagas (rapido, sem custo);
-      2. se o LLM estiver ativo, refina apenas as mais promissoras
-         (heuristica >= llm_min_heuristic), no maximo llm_max_jobs.
+    O RANKING e sempre heuristico (rapido, estavel, previsivel).
 
-    Isso evita ~200 chamadas de LLM por execucao — o LLM entra so onde a
-    decisao de recomendar/descartar e de fato apertada.
+    Se o LLM estiver ativo, ele so ENRIQUECE as razoes das vagas melhor
+    ranqueadas (troca os bullets templados por uma leitura do modelo) e
+    ajusta o score levemente (blend 70/30) — nunca o substitui, pra uma
+    vaga bem ranqueada nao afundar so porque o LLM foi mais rigoroso ou
+    porque a chamada falhou.
     """
     sc = cfg.get("scoring", {})
     mode = str(sc.get("mode", "auto")).lower()
     model = sc.get("llm_model", "claude-sonnet-5")
-    use_llm = mode == "llm" or (mode == "auto" and llm_available())
+    use_llm = mode in ("llm", "auto") and llm_available()
 
     scored = [heuristic_score(job, cand) for job in jobs]
     if not use_llm or not scored:
@@ -251,14 +256,17 @@ def score_all(jobs: list[Job], cand: dict, cfg: dict) -> list[Scored]:
         if n:
             time.sleep(0.4)  # espaca as chamadas pra nao tomar rate limit
         try:
-            new = llm_score(jobs[i], cand, model)
-            if not new.reasons:
-                new.reasons.append("Avaliado por LLM")
-            scored[i] = new
+            llm = llm_score(jobs[i], cand, model)
+            if llm.reasons:
+                scored[i].reasons = llm.reasons
+            scored[i].flags = sorted(set(scored[i].flags) | set(llm.flags))
+            scored[i].score = max(
+                0, min(100, round(0.7 * scored[i].score + 0.3 * llm.score))
+            )
             refined += 1
-        except Exception as exc:  # rede, parsing, quota... mantem a heuristica (silencioso pro usuario)
+        except Exception as exc:  # rede, parsing, quota... mantem a heuristica pura
             print(f"    [llm_score] {jobs[i].uid}: {exc}", file=sys.stderr)
-    print(f"    LLM refinou {refined}/{len(candidates)} vagas (heuristica >= {min_heur})")
+    print(f"    LLM enriqueceu {refined}/{len(candidates)} vagas do topo")
     return scored
 
 
