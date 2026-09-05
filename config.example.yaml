@@ -41,10 +41,18 @@ sources:
     enabled: true
   arbeitnow:
     enabled: true
+  remotive:
+    enabled: true
+    category: "software-dev"               # https://remotive.com/api/remote-jobs (sem chave)
+    lookback_hours: 336                    # e board de "vagas abertas agora", nao feed por data
+  weworkremotely:
+    enabled: true                          # feeds RSS de vagas de dev remotas (sem chave)
+    lookback_hours: 168
+    categories: ["remote-full-stack-programming-jobs", "remote-back-end-programming-jobs", "remote-front-end-programming-jobs"]
   adzuna:
-    enabled: false                         # precisa de chave grátis: https://developer.adzuna.com
-    app_id: ""                             # ou variável de ambiente ADZUNA_APP_ID
-    app_key: ""                            # ou variável de ambiente ADZUNA_APP_KEY
+    enabled: true                          # so coleta depois de por as chaves; sem elas, e ignorada
+    app_id: ""                             # crie chave gratis em https://developer.adzuna.com e use ADZUNA_APP_ID
+    app_key: ""                            # ... e ADZUNA_APP_KEY (no Render: Environment)
     country: "br"
     results_per_page: 50
     max_pages: 2

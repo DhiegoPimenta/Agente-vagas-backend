@@ -27,6 +27,8 @@ _OFF_TARGET_TITLE = (
     "systems engineer", "business development", "technical writer", "developer relations",
     "developer advocate", "recruiter", "product manager", "project manager", "scrum master",
     "ux designer", "ui designer", "graphic designer",
+    "copywriter", "content writer", "content manager", "seo specialist", "marketing manager",
+    "account executive", "customer success", "community manager", "virtual assistant",
 )
 
 _BR_HINTS = ("brazil", "brasil", "latam", "latin america", "são paulo", "sao paulo")
@@ -125,7 +127,8 @@ def heuristic_score(job: Job, cand: dict) -> Scored:
     # na pratica sao remoto regional, que Tiago nao consegue pegar do Brasil.
     loc = job.location.lower()
     loc_br = any(k in loc for k in _BR_HINTS)
-    place = _names_place(job.location) and not loc_br  # local aponta cidade/pais estrangeiro
+    loc_global = any(k in loc for k in ("worldwide", "anywhere", "global", "fully remote", "no location"))
+    place = _names_place(job.location) and not loc_br and not loc_global
 
     if loc_br and (is_remote or is_hybrid):
         score += 12
@@ -136,6 +139,12 @@ def heuristic_score(job: Job, cand: dict) -> Scored:
         score += 4
         region = "br"
         reasons.append("Presencial no Brasil")
+    elif loc_global and not region_locked:
+        # o LOCAL diz worldwide/anywhere -> vale mesmo que cite outra cidade
+        score += 12
+        flags.append("modalidade_ok")
+        region = "global"
+        reasons.append("Remoto worldwide")
     elif place:
         # local aponta cidade/pais estrangeiro -> na pratica exige presenca ou e
         # remoto regional; Tiago nao consegue pegar do Brasil.

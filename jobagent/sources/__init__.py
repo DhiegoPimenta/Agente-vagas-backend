@@ -4,10 +4,14 @@ from .adzuna import Adzuna
 from .arbeitnow import Arbeitnow
 from .base import Source
 from .remoteok import RemoteOK
+from .remotive import Remotive
+from .weworkremotely import WeWorkRemotely
 
 REGISTRY: dict[str, type[Source]] = {
     "remoteok": RemoteOK,
     "arbeitnow": Arbeitnow,
+    "remotive": Remotive,
+    "weworkremotely": WeWorkRemotely,
     "adzuna": Adzuna,
 }
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import requests
 
 from ..models import Job
@@ -16,10 +18,11 @@ class Adzuna(Source):
         app_id = self.options.get("app_id")
         app_key = self.options.get("app_key")
         if not app_id or not app_key:
-            raise RuntimeError(
-                "Adzuna habilitada mas sem credenciais. "
-                "Preencha sources.adzuna.app_id/app_key ou use ADZUNA_APP_ID / ADZUNA_APP_KEY."
+            print(
+                "    adzuna: sem credenciais (ADZUNA_APP_ID / ADZUNA_APP_KEY) - fonte ignorada",
+                file=sys.stderr,
             )
+            return []
         country = self.options.get("country", "br")
         rpp = int(self.options.get("results_per_page", 50))
         max_pages = int(self.options.get("max_pages", 2))
