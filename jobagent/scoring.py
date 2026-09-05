@@ -281,7 +281,22 @@ def _analysis_html(data: dict) -> str:
         lis = "".join(f"<li>{_html.escape(str(x))}</li>" for x in (items or [])[:4])
         return f"<ul style='margin:4px 0 8px 18px;padding:0'>{lis}</ul>" if lis else ""
 
-    parts = [f"<p style='margin:6px 0'>{_html.escape(str(data.get('fit', '')))}</p>"]
+    parts: list[str] = []
+
+    empresa = str(data.get("empresa", "")).strip()
+    if empresa:
+        parts.append(
+            "<b style='font-size:12px'>Sobre a empresa</b>"
+            f"<p style='margin:4px 0 8px'>{_html.escape(empresa)} "
+            "<span style='color:#999'>(conhecimento geral do modelo, pode estar desatualizado)</span></p>"
+        )
+
+    fit = str(data.get("fit", "")).strip()
+    if fit:
+        parts.append(
+            f"<b style='font-size:12px'>Encaixe</b><p style='margin:4px 0 8px'>{_html.escape(fit)}</p>"
+        )
+
     for key, label in (
         ("atencao", "Pontos de atencao"),
         ("revisar", "Revisar antes"),
@@ -302,10 +317,16 @@ def analyze_job(job: Job, cand: dict, model: str) -> str:
         )
     }
     prompt = (
-        "Com base no PERFIL e na VAGA, gere uma analise curta em portugues para o "
-        "candidato decidir se aplica.\n"
+        "Com base no PERFIL, na VAGA e no seu conhecimento geral, gere uma analise "
+        "curta em portugues para o candidato decidir se aplica.\n"
         'Responda APENAS o objeto JSON, sem texto antes/depois e sem crases: '
-        '{"fit": <str>, "atencao": [<str>], "revisar": [<str>], "perguntas_recrutador": [<str>]}.\n'
+        '{"empresa": <str>, "fit": <str>, "atencao": [<str>], "revisar": [<str>], '
+        '"perguntas_recrutador": [<str>]}.\n'
+        "empresa: 2-4 frases sobre a empresa citada na VAGA -- setor, porte e o que se "
+        "sabe sobre ser um bom lugar para trabalhar (pontos fortes e fracos conhecidos: "
+        "cultura, estabilidade, reputacao, remuneracao). Se for pouco conhecida ou voce "
+        "nao tiver informacao confiavel, diga isso claramente. Use seu conhecimento de "
+        "treino (pode estar desatualizado); NAO invente fatos, notas nem numeros.\n"
         "fit: 2-3 frases sobre o encaixe. Cada lista: no maximo 4 itens curtos.\n"
         "Se o perfil nao tiver resumo de experiencia, foque em cargos-alvo e stacks; "
         "nao invente experiencia.\n\n"
@@ -314,7 +335,7 @@ def analyze_job(job: Job, cand: dict, model: str) -> str:
         f"titulo: {job.title}\nempresa: {job.company}\nlocal: {job.location}\n"
         f"descricao: {job.description[:4000]}\n"
     )
-    return _analysis_html(_llm_json(model, prompt, max_tokens=1100))
+    return _analysis_html(_llm_json(model, prompt, max_tokens=1400))
 
 
 def maybe_analyze(recommended: list[Scored], cand: dict, cfg: dict) -> None:
