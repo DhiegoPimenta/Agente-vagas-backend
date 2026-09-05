@@ -12,16 +12,21 @@ candidate:
     - "Backend Developer"
   # senioridades que ele aceita (usado no score do título da vaga)
   aceita_senioridades: ["pleno", "senior"]
-  stack_principal: ["Angular", "React", "Java", "C#", "Python"]
-  stack_secundaria: ["TypeScript", "Node", ".NET", "Spring", "SQL", "AWS", "Docker", "REST", "microservices"]
+  stack_principal: ["Java", "C#", "Python", "Spring Boot", "React", "Angular"]
+  stack_secundaria: ["Quarkus", ".NET", "SQL", "microservices", "Kafka", "AWS", "Lambda",
+                     "ECS", "Docker", "Kubernetes", "Terraform", "MongoDB", "Redis", "REST",
+                     "TypeScript", "Node"]
   modalidade: ["remoto", "hibrido"]        # remoto | hibrido | presencial
   localizacao_preferida: ["São Paulo/SP", "Brasil", "Remoto", "LATAM"]
   faixa_salarial_min: 0                     # 0 = sem filtro de salário
   moeda: "BRL"
-  idiomas: ["Português", "Inglês"]
+  idiomas: ["Português", "Inglês (fluente/C1)", "Espanhol (intermediário)"]
+  # DADO PESSOAL: o resumo real vem da env var RESUMO_CURRICULO (definida no Render),
+  # nunca deste arquivo (o repo e publico). Aqui fica so um fallback generico.
   resumo_curriculo: |
-    (preencher quando o currículo do Tiago chegar — 3 a 5 linhas com anos de
-    experiência, principais projetos e conquistas. Usado só pelo score por LLM.)
+    Engenheiro de software pleno/senior com 6+ anos de experiencia, base forte em
+    back-end distribuido (Java/Spring Boot, C#, Python, microsservicos, mensageria,
+    AWS) e evoluindo para full-stack. Ingles fluente.
   curriculo_arquivo: ""                     # caminho do PDF/DOCX (para futuras candidaturas)
   email_destino: "SEU_EMAIL@exemplo.com"
   restricoes:

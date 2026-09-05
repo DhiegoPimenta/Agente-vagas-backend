@@ -44,3 +44,6 @@ def _apply_env_overrides(cfg: dict[str, Any]) -> None:
         cfg.setdefault("analysis", {})["enabled"] = (
             os.environ["ANALYSIS_ENABLED"].strip().lower() in ("1", "true", "yes", "on")
         )
+    # Resumo do curriculo do candidato vem por env var (dado pessoal, fora do git publico).
+    if os.getenv("RESUMO_CURRICULO"):
+        cfg.setdefault("candidate", {})["resumo_curriculo"] = os.environ["RESUMO_CURRICULO"].strip()
