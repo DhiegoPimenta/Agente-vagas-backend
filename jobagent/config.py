@@ -35,3 +35,12 @@ def _apply_env_overrides(cfg: dict[str, Any]) -> None:
         cfg.setdefault("output", {})["pages_dir"] = os.environ["PAGES_DIR"]
     if os.getenv("SCORING_MODE"):
         cfg.setdefault("scoring", {})["mode"] = os.environ["SCORING_MODE"]
+    if os.getenv("MAX_JOBS_PER_SOURCE"):
+        try:
+            cfg.setdefault("collection", {})["max_jobs_per_source"] = int(os.environ["MAX_JOBS_PER_SOURCE"])
+        except ValueError:
+            pass
+    if os.getenv("ANALYSIS_ENABLED"):
+        cfg.setdefault("analysis", {})["enabled"] = (
+            os.environ["ANALYSIS_ENABLED"].strip().lower() in ("1", "true", "yes", "on")
+        )
